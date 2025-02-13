@@ -1,4 +1,4 @@
-import AddTodo from "@/pages/AddTodo";
+import AddTodo from "@/components/AddTodo";
 
 const HomePage = () => {
     return (

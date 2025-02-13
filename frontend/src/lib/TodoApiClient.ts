@@ -1,4 +1,4 @@
-import { ApolloClient, InMemoryCache, ApolloLink, gql } from "@apollo/client";
+import { ApolloClient, InMemoryCache, ApolloLink, gql, HttpLink } from "@apollo/client";
 import {
   CreateTodoVariable,
   EditTodoVariables,
@@ -22,42 +22,31 @@ import {
   LOGIN_USER,
   REGISTER_USER,
 } from "./graphql";
+import Cookies from "js-cookie";
 
 class TodoApiClient {
   private client: ApolloClient<any>;
-  private token: string | undefined;
 
-  constructor(token?: string) {
-    this.token = token;
+  constructor() {
+    const authLink = new ApolloLink((operation, forward) => {
+      const token = Cookies.get('token');
+      operation.setContext({
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+        },
+      });
+      return forward(operation);
+    });
+
     this.client = new ApolloClient({
-      uri: "http://localhost:4000/graphql",
+      uri: "http://localhost:5000/graphql",
       cache: new InMemoryCache(),
-      headers: {
-        Authorization: token ? `Bearer ${token}` : "",
-      },
+      link: authLink.concat(new HttpLink({ uri: "http://localhost:5000/graphql" })),
+      credentials: "include",
     });
   }
+  
 
-  // Function to dynamically update the token
-  setToken(token: string | undefined) {
-    this.token = token;
-    if (this.client) {
-      this.client.setLink(
-        this.client.link.concat(
-          new ApolloLink((operation, forward) => {
-            if (this.token) {
-              operation.setContext({
-                headers: {
-                  Authorization: `Bearer ${this.token}`,
-                },
-              });
-            }
-            return forward(operation);
-          })
-        )
-      );
-    }
-  }
   private async request(query: any, variables: any = {}) {
     try {
       const result = await this.client.mutate({
@@ -72,13 +61,7 @@ class TodoApiClient {
     } catch (error) {
       throw new Error(`API request failed`);
     }
-  }
-
-  // Fetch all todos for a user
-  async getUserTodos() {
-    const data = await this.request(GET_USER_TODOS, { userId: this.token });
-    return data?.getUserTodos;
-  }
+  }  
 
   // Create a new todo
   async createTodo({
@@ -145,7 +128,12 @@ class TodoApiClient {
   }
 
   // Update a todo
-  async updateTodo({ id, title, description, completed }: EditTodoVariables) {
+  async updateTodo({
+    id,
+    title,
+    description,
+    completed,
+  }: EditTodoVariables) {
     try {
       const { data } = await this.client.mutate({
         mutation: gql`
@@ -165,24 +153,29 @@ class TodoApiClient {
   }: LoginUserVariables): Promise<LoginUserResponse> {
     try {
       const { data, errors } = await this.client.mutate({
-        mutation: gql`${LOGIN_USER}`,
+        mutation: gql`
+          ${LOGIN_USER}
+        `,
         variables: { email, password },
       });
-  
+
       if (errors) {
         throw new Error(errors[0]?.message || "GraphQL errors occurred");
       }
-  
+
       if (!data?.login) {
         throw new Error("Login failed");
       }
-  
+
       return data.login;
     } catch (error) {
-      throw new Error(`API request failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+      throw new Error(
+        `API request failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
   }
 
+  // Register user
   async registerUser({
     username,
     email,
@@ -190,25 +183,27 @@ class TodoApiClient {
   }: RegisterUserVariables): Promise<RegisterUserResponse> {
     try {
       const { data, errors } = await this.client.mutate({
-        mutation: gql`${REGISTER_USER}`,
+        mutation: gql`
+          ${REGISTER_USER}
+        `,
         variables: { username, email, password },
       });
-  
+
       if (errors) {
         throw new Error(errors[0]?.message || "GraphQL errors occurred");
       }
-  
+
       if (!data?.register) {
         throw new Error("Register failed");
       }
-  
+
       return data.register;
     } catch (error) {
-      throw new Error(`API request failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+      throw new Error(
+        `API request failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
   }
-  
 }
-
 
 export default TodoApiClient;

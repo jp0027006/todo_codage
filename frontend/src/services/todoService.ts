@@ -1,35 +1,54 @@
+import { GET_USER_TODOS } from "@/lib/graphql";
 import TodoApiClient from "@/lib/TodoApiClient";
 import {
   Todo,
   CreateTodoVariable,
-  EditTodoResponse,
   EditTodoVariables,
   GetTodoByIdVariables,
 } from "@/types/types";
+import { print } from "graphql";
 
 const apiClient = new TodoApiClient();
+export interface GetUserTodosResponse {
+  data: {
+    getUserTodos: Todo[];
+  };
+}
 
-export async function getTodo({
-  token,
-}: {
-  token: string | undefined;
-}): Promise<Todo[] | undefined> {
+export async function getTodo(token: string | null) {
   if (!token) {
     console.log("No token provided");
     return undefined;
   }
-
-  apiClient.setToken(token);
-
   try {
-    const todos = await apiClient.getUserTodos();
-    return todos;
+    const queryString = print(GET_USER_TODOS);
+    const response = await fetch("http://localhost:5000/graphql", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        authentication: token ? `${token}` : "",
+      },
+      body: JSON.stringify({
+        query: queryString,
+        variables: {
+          userId: token,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorMessage = `Error fetching todos: ${response.status} - ${response.statusText}`;
+      console.log(errorMessage);
+      return undefined;
+    }
+
+    const data: GetUserTodosResponse = await response.json();
+    return data?.data?.getUserTodos;
   } catch (error) {
-    console.log("Error fetching todos", error);
+    console.log("Error sending request to get todos", error);
     return undefined;
   }
 }
-
 export async function createTodo({
   title,
   description,
@@ -39,9 +58,6 @@ export async function createTodo({
   if (!token) {
     throw new Error("No token provided");
   }
-
-  apiClient.setToken(token);
-
   try {
     const newTodo = await apiClient.createTodo({
       title,

@@ -74,7 +74,7 @@ export const useLoginUserMutation = () => {
   return useMutation({
     mutationFn: loginUserRequest,
     onSuccess: (token: string) => {
-      Cookies.set("token", token, { expires: 7 });
+      Cookies.set('token', token, { expires: 7, secure: true });
       toast.success("Login successful!");
       router.push("/");
     },

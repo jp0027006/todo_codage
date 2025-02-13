@@ -87,5 +87,6 @@ export interface LoginUserVariables {
 }
 
 export interface LoginUserResponse {
+  token: string | PromiseLike<string>;
   login: string;
 }

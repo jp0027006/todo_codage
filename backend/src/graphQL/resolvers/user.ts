@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { PrismaClient } from "@prisma/client";
+import { Response } from "express"; 
 
 const prisma: PrismaClient = new PrismaClient();
 
@@ -50,7 +51,8 @@ const userResolvers = {
 
         login: async (
             _: unknown,
-            { email, password }: LoginArgs
+            { email, password }: LoginArgs,
+            { res }: { res: Response } 
         ): Promise<string> => {
             try {
                 const user = await prisma.user.findUnique({ where: { email } });
@@ -67,6 +69,13 @@ const userResolvers = {
 
                 const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
                     expiresIn: "1d",
+                });
+
+                res.cookie("token", token, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === "production", 
+                    maxAge: 24 * 60 * 60 * 1000,
+                    sameSite: "strict",
                 });
 
                 return token;

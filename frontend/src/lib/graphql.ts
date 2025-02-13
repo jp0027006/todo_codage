@@ -45,7 +45,6 @@ export const addTodoMut = `
   }
 `;
 
-
 // all Todo data
 export const GET_USER_TODOS = gql`
   query GetUserTodos($userId: String!) {
@@ -65,7 +64,6 @@ export const DELETE_TODO = `
     deleteTodo(id: $id)
   }
 `;
-
 
 // Edit Todo mutation
 export const EDIT_TODO = `
@@ -89,7 +87,6 @@ export const EDIT_TODO = `
     }
   }
 `;
-
 
 // Get Todo by ID mutation
 export const GET_TODO_BY_ID = gql`

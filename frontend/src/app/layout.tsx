@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import QueryClientProviderWrapper from "@/components/tanStackProvider";
-import { SessionProvider } from "@/context/SessionContext";
+import { AuthProvider } from "@/context/AuthContext";
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -16,9 +16,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <SessionProvider>
-          <QueryClientProviderWrapper>{children}</QueryClientProviderWrapper>{" "}
-        </SessionProvider>
+        <AuthProvider>
+          <QueryClientProviderWrapper>{children}</QueryClientProviderWrapper>
+        </AuthProvider>
       </body>
     </html>
   );

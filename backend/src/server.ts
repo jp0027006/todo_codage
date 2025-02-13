@@ -1,27 +1,32 @@
 import { ApolloServer } from "apollo-server-express";
 import cookieParser from "cookie-parser";
-import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
-import jwt, { JwtPayload } from "jsonwebtoken";
+import { verifyToken } from './utils/tokenUtils';
 import { todoResolvers } from "../src/graphQL/resolvers/todo";
 import { userResolvers } from "../src/graphQL/resolvers/user";
 import { typeDefs } from "./graphQL/type";
-import { PrismaClient } from "@prisma/client";  
-
-const prisma: PrismaClient = new PrismaClient();
+import { PrismaClient } from "@prisma/client";
+import cors from "cors";
 
 dotenv.config();
 
+const prisma = new PrismaClient();
 const app: express.Application = express();
-const port = process.env.PORT || 4000;
+const port = process.env.PORT || 5000;
 
 app.use(cookieParser());
 
-interface MyJwtPayload extends JwtPayload {
-  userId: string;
-}
+// CORS setup
+const corsOptions = {
+  origin: "http://localhost:3001",
+  credentials: true,
+};
 
+// Apply CORS middleware to your app
+app.use(cors(corsOptions));
+
+// Resolvers
 const resolvers = {
   Query: {
     ...todoResolvers.Query,
@@ -33,73 +38,45 @@ const resolvers = {
   },
 };
 
-const verifyToken = (authorizationHeader: string): MyJwtPayload | null => {
-  if (!authorizationHeader || !authorizationHeader.startsWith("Bearer ")) {
-    return null;
-  }
-
-  const token = authorizationHeader.replace("Bearer ", "");
-
-  try {
-    const decodedToken = jwt.verify(token, process.env.JWT_SECRET as string);
-
-    return decodedToken as MyJwtPayload;
-  } catch (err: unknown) {
-    if (err instanceof Error) {
-      if (err.name === "TokenExpiredError") {
-        console.error("Token has expired");
-      } else {
-        console.error("Invalid or expired token");
-      }
-    } else {
-      console.error("Unknown error occurred during token verification");
-    }
-    return null;
-  }
-};
-
 // Apollo Server Setup
 const server = new ApolloServer({
   typeDefs,
   resolvers,
-  context: async ({ req }) => {
-    const sessionToken = req?.headers?.authorization;
-
+  context: async ({ req, res }) => {
+    const token = req.cookies.token;
+    
     let user = null;
 
-    if (sessionToken) {
-      const decodedToken = verifyToken(sessionToken);
-      if (decodedToken) {
-        user = { id: decodedToken.userId };
+    if (token) {
+      try {
+        const decodedToken = verifyToken(token);
+        if (decodedToken) {
+          user = { id: decodedToken.userId };
+        }
+      } catch (error) {
+        console.error("Error during token verification:", error);
       }
+    } else {
     }
 
     return {
       prisma,
       user,
+      res,
     };
   },
 });
 
 const serverStart = async () => {
-  const corsOptions = {
-    origin: "http://localhost:3000",
-    credentials: true,
-    methods: ["GET", "POST", "OPTIONS"],
-  };
-  app.use(cors(corsOptions));
-
   await server.start();
+  server.applyMiddleware({ app, path: '/graphql' } as any);
 
-  server.applyMiddleware({ app } as any);
-
-  app.listen(port, () =>
-    console.log(
-      `Server is running on http://localhost:${port}${server.graphqlPath}`
-    )
-  );
+  app.listen(port, () => {
+    console.log(`Server is running on http://localhost:${port}${server.graphqlPath}`);
+  });
 };
 
+// Start the server
 serverStart().catch((err) => {
-  console.log(`Server error: ${err}`);
+  console.error(`Server error: ${err}`);
 });
